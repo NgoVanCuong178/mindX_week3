@@ -14,5 +14,37 @@ public static class KbClientFactory
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
 
     public static IKbClient Create(IReadOnlyDictionary<string, string?> environment, TextWriter? log = null)
-        => throw new NotImplementedException();
+    {
+
+        var kind = Read(environment, ClientVariable);
+
+        // Không đặt hoặc để rỗng → dùng mock, để chạy được ngay mà không cần server.
+        if (kind is null || kind.Equals("mock", StringComparison.OrdinalIgnoreCase))
+        {
+            return new MockKbClient();
+        }
+        // "ftp" và các giá trị lạ
+        if (!kind.Equals("http", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new KbConfigurationException($"{ClientVariable} must be 'mock' or 'http', not '{kind}'.");
+        }
+        // Http mà thiếu url
+        var url = Read(environment, ApiUrlVariable)
+                  ?? throw new KbConfigurationException($"{ApiUrlVariable} is required when {ClientVariable}=http.");
+
+        // Thêm "/" cuối nếu thiếu: không có nó, HttpClient ghép "https://kb.example.test" + "search"
+        // thành "https://kb.example.testsearch".
+        if (!Uri.TryCreate(url.TrimEnd('/') + "/", UriKind.Absolute, out var baseAddress)
+            || (baseAddress.Scheme != Uri.UriSchemeHttp && baseAddress.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new KbConfigurationException($"{ApiUrlVariable} must be an http(s) URL, not '{url}'.");
+        }
+
+        var httpClient = new HttpClient { BaseAddress = baseAddress, Timeout = RequestTimeout };
+        return new HttpKbClient(httpClient, Read(environment, ApiTokenVariable), log);
+    }
+
+    // Biến không có, hoặc có nhưng rỗng / chỉ khoảng trắng → coi như không đặt.
+    private static string? Read(IReadOnlyDictionary<string, string?> environment, string name)
+        => environment.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
 }

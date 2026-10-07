@@ -1,4 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using KnowledgeBase.Cli.Clients;
+using KnowledgeBase.Cli.Models;
 
 namespace KnowledgeBase.Api;
 
@@ -18,14 +21,59 @@ public static class KbApiServer
 
     public static WebApplication Build(string[] args, IKbClient? store = null)
     {
-        var app = WebApplication.CreateBuilder(args).Build();
+        var builder = WebApplication.CreateBuilder(args);
 
-        // Stub: mọi endpoint trả 501 Not Implemented cho tới giai đoạn Green.
-        app.MapGet("/health", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        app.MapPost("/search", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        app.MapPost("/list", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        app.MapPost("/retrieve", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        app.MapPost("/add", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
+        // Ghi enum thành chữ ("title") thay vì số, đúng như HttpKbClient mong đợi (KbApiJson).
+        builder.Services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+
+        var app = builder.Build();
+        // nếu store chưa có thì gán. Test truyền store vào trong bộ nhớ, chạy thật thì dùng file.
+        store ??= new FileKbStore(app.Configuration[DataFileSetting] ?? "kb-data.json");
+
+        var token = app.Configuration[TokenSetting];
+        if (!string.IsNullOrEmpty(token))
+        {
+            app.Use(async (context, next) => // chạy trước mọi endpoint (middleware).
+            {
+                if (context.Request.Path != "/health"
+                    && context.Request.Headers.Authorization != $"Bearer {token}")
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await context.Response.WriteAsJsonAsync(new { error = "Missing or invalid token." });
+                    return; // chặn
+                }
+
+                await next(context); // hợp lệ chuyển tiếp
+            });
+        }
+
+        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+        app.MapPost("/search", async (KbQuery query) =>
+        {
+            var results = await store.SearchAsync(query);
+            return Results.Ok(new SearchResponse(results
+                .Select(r => new SearchResultItem(r.Document.Id, r.Document.Title, r.Document.NodePath, r.MatchType))
+                .ToList()));
+        });
+
+        app.MapPost("/list", async (ListRequest request)
+            => Results.Ok(new ListResponse(await store.ListAsync(request.NodePath, request.Limit))));
+
+        app.MapPost("/retrieve", async (RetrieveRequest request) =>
+        {
+            try
+            {
+                return Results.Ok(await store.RetrieveAsync(request.DocId));
+            }
+            catch (KbDocumentNotFoundException ex) // 404
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        });
+
+        app.MapPost("/add", async (NewKbDocument document) => Results.Ok(await store.AddAsync(document)));
 
         return app;
     }

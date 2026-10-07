@@ -33,11 +33,67 @@ public class MockKbClient : IKbClient
         _documents = documents.ToList();
     }
 
-    public Task<IReadOnlyList<SearchResult>> SearchAsync(KbQuery query) => throw new NotImplementedException();
+    // Tìm từ khoá (không phân biệt hoa thường) trong title, tag rồi content của từng tài liệu.
+    // Xếp theo nơi khớp (Title → Tag → Content), cùng nơi khớp thì theo id; lấy tối đa TopK kết quả.
+    public Task<IReadOnlyList<SearchResult>> SearchAsync(KbQuery query)
+    {
+        IReadOnlyList<SearchResult> results = _documents
+            .Select(document => (Document: document, Match: FindMatch(document, query.Query))) // tính "khớp ở đâu"
+            .Where(candidate => candidate.Match is not null) // bỏ tài liệu không khớp
+            .OrderBy(candidate => candidate.Match) // Title (0) --> Tag(1) --> Content(2)
+            .ThenBy(candidate => candidate.Document.Id, StringComparer.Ordinal) // cùng loại khớp thì theo id
+            .Take(query.TopK) // lấy tối đa topK
+            .Select(candidate => new SearchResult(Summarize(candidate.Document), candidate.Match!.Value))
+            .ToList();
+        return Task.FromResult(results);
+    }
 
-    public Task<IReadOnlyList<KbDocumentSummary>> ListAsync(string nodePath, int limit) => throw new NotImplementedException();
+    // Tài liệu thuộc đúng node, sắp theo id, lấy tối đa limit tài liệu.
+    public Task<IReadOnlyList<KbDocumentSummary>> ListAsync(string nodePath, int limit)
+    {
+        IReadOnlyList<KbDocumentSummary> documents = _documents
+            .Where(document => document.NodePath == nodePath)
+            .OrderBy(document => document.Id, StringComparer.Ordinal)
+            .Take(limit)
+            .Select(Summarize)
+            .ToList();
+        return Task.FromResult(documents);
+    }
 
-    public Task<KbDocument> RetrieveAsync(string docId) => throw new NotImplementedException();
+    public Task<KbDocument> RetrieveAsync(string docId)
+        => Task.FromResult(_documents.FirstOrDefault(document => document.Id == docId)
+                           ?? throw new KbDocumentNotFoundException(docId));
 
-    public Task<KbDocument> AddAsync(NewKbDocument document) => throw new NotImplementedException();
+    // Cấp id mới = số lớn nhất trong các id "doc-NNN" hiện có + 1 (không dùng số lượng tài liệu + 1,
+    // vì có thể trùng id cũ khi dãy id có lỗ hổng — bài học U02 của Tuần 2).
+    public Task<KbDocument> AddAsync(NewKbDocument document)
+    {
+        var nextNumber = _documents
+            .Select(existing => int.Parse(existing.Id["doc-".Length..])) // "doc-005" --> 5
+            .DefaultIfEmpty(0) 
+            .Max() + 1; // max + 1
+
+        var added = new KbDocument($"doc-{nextNumber:D3}", document.Title, document.Content,
+                                   document.NodePath, document.Tags.ToList()); // D3 : đủ 3 chữ số --> "doc-006"
+        _documents.Add(added);
+        return Task.FromResult(added);
+    }
+
+    private static MatchKind? FindMatch(KbDocument document, string query)
+    {
+        if (document.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+        {
+            return MatchKind.Title;
+        }
+
+        if (document.Tags.Any(tag => tag.Contains(query, StringComparison.OrdinalIgnoreCase)))
+        {
+            return MatchKind.Tag;
+        }
+
+        return document.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ? MatchKind.Content : null;
+    }
+
+    private static KbDocumentSummary Summarize(KbDocument document)
+        => new(document.Id, document.Title, document.NodePath);
 }

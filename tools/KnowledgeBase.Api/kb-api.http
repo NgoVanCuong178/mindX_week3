@@ -1,0 +1,45 @@
+﻿@kb = http://localhost:5080
+
+### 1. Kiểm tra server
+GET {{kb}}/health
+
+### 2. Tìm kiếm "response"
+POST {{kb}}/search
+Content-Type: application/json
+
+{ "query": "response", "topK": 3 }
+
+### 3. Liệt kê nhóm DevOps
+POST {{kb}}/list
+Content-Type: application/json
+
+{ "nodePath": "/team/devops", "limit": 10 }
+
+### 4. Lấy chi tiết mẫu email
+POST {{kb}}/retrieve
+Content-Type: application/json
+
+{ "docId": "doc-001" }
+
+### 5. Id không tồn tại
+POST {{kb}}/retrieve
+Content-Type: application/json
+
+{ "docId": "doc-999" }
+
+### 6. Thêm tài liệu mới
+POST {{kb}}/add
+Content-Type: application/json
+
+{
+  "title": "SMS Reminder Template",
+  "content": "# SMS Reminder Template\n\nHi {name}, your appointment is tomorrow.",
+  "nodePath": "/templates/sms",
+  "tags": ["sms", "reminder"]
+}
+
+### 7. Tìm lại tài liệu vừa thêm
+POST {{kb}}/search
+Content-Type: application/json
+
+{ "query": "reminder", "topK": 5 }
