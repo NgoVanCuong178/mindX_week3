@@ -18,14 +18,15 @@ Tags:  template, email
 ...
 ```
 
-CLI có hai client, chọn bằng biến môi trường:
+CLI có ba client, chọn bằng biến môi trường:
 
 - **Mock client** (mặc định): dữ liệu mẫu nằm trong bộ nhớ, không cần server. Dùng khi phát triển và khi test.
-- **HTTP client**: gọi KB API qua HTTP (`POST /search`, `/list`, `/retrieve`, `/add`).
+- **HTTP client**: gọi KB API theo API contract của đề qua HTTP (`POST /search`, `/list`, `/retrieve`, `/add`).
+- **Zendesk client**: đọc một **Zendesk Help Center** thật, công khai, ví dụ `https://support.zendesk.com`. Chỉ đọc: `search`, `list`, `retrieve`.
 
 Dự án được xây dựng theo Test-Driven Development (bài tập Tuần 3, MindX Engineering Onboarding), tiếp nối Ticket Manager CLI của Tuần 2.
 
-> **Về KB API:** bài tập không cung cấp KB API thật, nên repo có kèm một KB API tự dựng (`tools/KnowledgeBase.Api`) theo đúng API contract trong `architecture.md` của Tuần 3. Khi có KB API thật, chỉ cần đổi `KB_API_URL`, không cần sửa code. Xem [docs/kb-architecture.md](docs/kb-architecture.md).
+> **Về KB API:** bài tập không cung cấp KB API thật, nên repo có kèm một KB API tự dựng (`tools/KnowledgeBase.Api`) theo đúng API contract trong `architecture.md` của Tuần 3. Khi có KB API thật, chỉ cần đổi `KB_API_URL`, không cần sửa code. Để có bằng chứng tích hợp với một KB **bên ngoài thật**, CLI còn đọc được Zendesk Help Center (không phải KB của MindX, và theo contract khác). Xem [docs/kb-architecture.md](docs/kb-architecture.md).
 
 ## Mục lục
 
@@ -34,6 +35,7 @@ Dự án được xây dựng theo Test-Driven Development (bài tập Tuần 3,
 - [Cấu hình](#cấu-hình)
 - [Chạy với mock client](#chạy-với-mock-client)
 - [Chạy với HTTP client và KB API](#chạy-với-http-client-và-kb-api)
+- [Chạy với Zendesk Help Center](#chạy-với-zendesk-help-center)
 - [API contract](#api-contract)
 - [Các lệnh](#các-lệnh)
 - [Exit code](#exit-code)
@@ -98,9 +100,10 @@ CLI đọc cấu hình từ biến môi trường:
 
 | Biến | Bắt buộc | Giá trị | Ý nghĩa |
 |---|---|---|---|
-| `KB_CLIENT` | Không | `mock` (mặc định) hoặc `http` | Chọn client. Không đặt hoặc để rỗng thì dùng mock. Không phân biệt hoa thường |
-| `KB_API_URL` | Có, khi `KB_CLIENT=http` | URL `http://` hoặc `https://` | Địa chỉ gốc của KB API, ví dụ `http://localhost:5080`. Có hay không có `/` ở cuối đều được |
+| `KB_CLIENT` | Không | `mock` (mặc định), `http` hoặc `zendesk` | Chọn client. Không đặt hoặc để rỗng thì dùng mock. Không phân biệt hoa thường |
+| `KB_API_URL` | Có, khi `KB_CLIENT=http` hoặc `zendesk` | URL `http://` hoặc `https://` | Địa chỉ gốc của KB API, ví dụ `http://localhost:5080`, hoặc của Help Center, ví dụ `https://support.zendesk.com`. Có hay không có `/` ở cuối đều được |
 | `KB_API_TOKEN` | Không | Chuỗi bất kỳ | Nếu đặt, mỗi request gửi kèm header `Authorization: Bearer <token>` |
+| `KB_ZENDESK_LOCALE` | Không | Mã ngôn ngữ, mặc định `en-us` | Ngôn ngữ bài viết, chỉ dùng khi `KB_CLIENT=zendesk` |
 
 Mỗi request HTTP chờ tối đa **10 giây**.
 
@@ -215,7 +218,65 @@ export MSYS_NO_PATHCONV=1
 
 PowerShell, cmd, macOS và Linux không bị.
 
+## Chạy với Zendesk Help Center
+
+[Zendesk Help Center](https://developer.zendesk.com/api-reference/help_center/help-center-api/) là một nền tảng KB thật, được nhiều công ty dùng cho FAQ, hướng dẫn và quy trình hỗ trợ. Help Center công khai đọc được **không cần tài khoản**. `KB_CLIENT=zendesk` cho CLI đọc trực tiếp một Help Center như vậy, ví dụ Help Center của chính Zendesk ở `https://support.zendesk.com`.
+
+```bash
+export KB_CLIENT=zendesk
+export KB_API_URL=https://support.zendesk.com
+# export KB_ZENDESK_LOCALE=en-us   # không bắt buộc
+
+kb search "password reset" --top-k 3
+kb list --node /sections/4405298881946 --limit 5
+kb retrieve 4408894162714
+```
+
+PowerShell: `$env:KB_CLIENT = "zendesk"` và `$env:KB_API_URL = "https://support.zendesk.com"`. Với Git Bash, nhớ đặt `MSYS_NO_PATHCONV=1` (xem mục trên).
+
+```
+$ kb retrieve 4408894162714
+ID:    4408894162714
+Title: How long are account verification emails and password reset emails valid?
+Node:  /sections/4405298881946
+Tags:  mtpe, ks, ab0, Support, ...
+
+Question
+
+How long are account verification emails and password reset emails valid?
+
+Answer
+
+Both account verification emails and password reset emails expire after 24 hours. ...
+```
+
+**Khác biệt so với mock và HTTP client:**
+
+| | Zendesk |
+|---|---|
+| Id tài liệu | Số, ví dụ `4408894162714`: lấy từ cột `ID` của `kb search` |
+| Node | Một section của Help Center: `/sections/<id>`, lấy từ cột `NODE` của `kb search`. Node khác dạng này, hoặc section không tồn tại, cho `No documents found.` |
+| Tag | Nhãn (`label_names`) của bài viết |
+| Nội dung | Bài viết là HTML; `kb retrieve` đổi thành chữ thường (bỏ thẻ, ảnh, giữ chữ của link) |
+| Cột `MATCH` | Zendesk không trả field này, CLI tự tính theo cùng quy tắc với mock. Kết quả giữ đúng thứ tự xếp hạng của Zendesk |
+| `kb add` | **Không hỗ trợ**: tạo bài viết cần tài khoản agent của Zendesk. CLI báo `Zendesk Help Center is read-only...` (exit 1) và không gửi request |
+| `KB_API_TOKEN` | Không cần với Help Center công khai; nếu đặt, được gửi dạng OAuth `Bearer` token |
+
+Có thể trỏ `KB_API_URL` sang Help Center công khai của bất kỳ công ty nào dùng Zendesk.
+
+Các endpoint được gọi (đều là `GET`, kiểm tra được bằng trình duyệt):
+
+| Lệnh | Endpoint của Zendesk |
+|---|---|
+| `kb search <q> --top-k <n>` | `/api/v2/help_center/articles/search.json?query=<q>&per_page=<n>&locale=<locale>` |
+| `kb list --node /sections/<id> --limit <n>` | `/api/v2/help_center/<locale>/sections/<id>/articles.json?per_page=<n>` |
+| `kb retrieve <id>` | `/api/v2/help_center/<locale>/articles/<id>.json` |
+
+Ảnh chạy thử thật và kết quả: [docs/integration-evidence-zendesk.md](docs/integration-evidence-zendesk.md).
+
 ## API contract
+
+Contract giữa HTTP client (`KB_CLIENT=http`) và KB API. Zendesk client dùng API của Zendesk, xem [mục trên](#chạy-với-zendesk-help-center).
 
 CLI và KB API trao đổi bằng JSON qua HTTP. Mọi thao tác là `POST` với `Content-Type: application/json`; tên field dạng camelCase. Request lấy đúng theo `architecture.md` của Tuần 3.
 
@@ -362,11 +423,13 @@ Added document doc-009
 | File có nhưng không đọc được (đang bị khoá, không có quyền) | `Cannot read file 'new.md': The process cannot access the file ...` | 1 |
 | Không có tài liệu | `Document 'doc-999' not found` | 1 |
 | `KB_CLIENT=http` mà thiếu URL | `KB_API_URL is required when KB_CLIENT=http.` | 1 |
-| `KB_CLIENT` sai | `KB_CLIENT must be 'mock' or 'http', not 'abc'.` | 1 |
+| `KB_CLIENT` sai | `KB_CLIENT must be 'mock', 'http' or 'zendesk', not 'abc'.` | 1 |
+| `kb add` khi `KB_CLIENT=zendesk` | `Zendesk Help Center is read-only: kb add is not supported with KB_CLIENT=zendesk.` | 1 |
 | KB API chưa bật / sai cổng | `Cannot reach KB API at http://localhost:5080/: ...` | 3 |
 | Thiếu hoặc sai token | `KB API returned 401 (Unauthorized) for POST /list: Missing or invalid token.` | 3 |
 | KB API từ chối request | `KB API returned 400 (Bad Request) for POST /add: title is required.` | 3 |
 | KB API lỗi | `KB API returned 500 (Internal Server Error) for POST /search.` | 3 |
+| Zendesk giới hạn tốc độ gọi | `KB API returned 429 (Too Many Requests) for GET /api/v2/help_center/articles/search.json...` | 3 |
 | KB API trả response `null` hoặc thiếu field | `KB API returned an invalid response for POST /retrieve: field 'content' is missing.` | 3 |
 | KB API không trả lời sau 10 giây | `KB API at ... did not respond within 10 seconds.` | 3 |
 
@@ -377,7 +440,7 @@ Thông báo lỗi in ra **stderr**, kết quả in ra **stdout**.
 | Exit code | Ý nghĩa |
 |---|---|
 | `0` | Thành công |
-| `1` | Lỗi phía người dùng: sai cú pháp lệnh, dữ liệu không hợp lệ, không tìm thấy tài liệu, cấu hình biến môi trường sai |
+| `1` | Lỗi phía người dùng: sai cú pháp lệnh, dữ liệu không hợp lệ, không tìm thấy tài liệu, cấu hình biến môi trường sai, thao tác mà client đang dùng không hỗ trợ (`kb add` với Zendesk) |
 | `3` | Lỗi phía KB API: không kết nối được, hết thời gian chờ, server trả mã lỗi, response không đọc được hoặc thiếu field |
 
 Exit code `2` của Tuần 2 (file dữ liệu hỏng) không còn dùng, vì CLI không đọc file dữ liệu nữa.
@@ -391,18 +454,19 @@ dotnet test
 Kết quả mong đợi:
 
 ```
-Passed!  - Failed: 0, Passed: 61, ... KnowledgeBase.UnitTests.dll
-Passed!  - Failed: 0, Passed: 75, ... KnowledgeBase.IntegrationTests.dll
+Passed!  - Failed: 0, Passed: 109, ... KnowledgeBase.UnitTests.dll
+Passed!  - Failed: 0, Passed: 82, ... KnowledgeBase.IntegrationTests.dll
 ```
 
-Không cần bật KB API trước: test tự khởi động KB API khi cần (trong tiến trình test, hoặc thành tiến trình riêng).
+Không cần bật KB API trước: test tự khởi động KB API khi cần (trong tiến trình test, hoặc thành tiến trình riêng). Test Zendesk **không gọi Zendesk thật**: chúng dùng response thật đã lưu trong `tests/Fixtures/zendesk/` và một server Zendesk giả, nên chạy được khi không có mạng và không phụ thuộc dữ liệu thay đổi của Zendesk.
 
 | Nhóm | Mã | Nội dung |
 |---|---|---|
 | Unit: service | U01–U07 | Validate và chuẩn hoá input của 4 lệnh |
-| Unit: client | U08–U17 | Chọn client theo biến môi trường; `HttpKbClient` với HTTP giả: request đúng contract, đọc response, lỗi 4xx/5xx kèm lý do của server, mất kết nối, timeout, response `null` hoặc thiếu field, token, log |
+| Unit: client | U08–U18 | Chọn client theo biến môi trường (kể cả `zendesk`); `HttpKbClient` với HTTP giả: request đúng contract, đọc response, lỗi 4xx/5xx kèm lý do của server, mất kết nối, timeout, response `null` hoặc thiếu field, token, log |
+| Unit: Zendesk | Z01–Z09 | `ZendeskKbClient` với response thật đã lưu: URL `GET` và mã hoá query, ánh xạ section/label/HTML, cột MATCH, node và id không hợp lệ, 404, `add` chỉ đọc, 429/500/JSON hỏng/thiếu field, log và token; đổi HTML sang chữ |
 | Contract | K01–K06 | Cùng một bộ test chạy cho **cả** mock và HTTP client: hai client phải có cùng hành vi |
-| Lệnh CLI | C01–C13 | Cả 4 lệnh, với mock và HTTP, cùng các trường hợp lỗi (kể cả file không đọc được) |
+| Lệnh CLI | C01–C15 | Cả 4 lệnh, với mock, HTTP và Zendesk (server Zendesk giả), cùng các trường hợp lỗi (kể cả file không đọc được) |
 | KB API | V01–V07 | Lưu file, dữ liệu mẫu, token; từ chối request sai bằng HTTP 400 và không lưu dữ liệu sai |
 | Tích hợp | R01a–R01d | CLI client gọi KB API chạy ở **tiến trình riêng**, hoặc ở `KB_REAL_API_URL` |
 | End-to-end | E01–E02 | Chạy chương trình `kb` thật |
@@ -456,6 +520,10 @@ Báo cáo ghi thời điểm, URL, commit mã nguồn, kết quả từng bướ
 
 > **Trạng thái hiện tại:** [docs/integration-evidence.md](docs/integration-evidence.md) là kết quả chạy với KB API **tự dựng** của project (bản publish chạy như một dịch vụ riêng, ngoài repo, có token). Chưa có kết quả với KB API của MindX vì chưa được cấp URL. Khi có URL, chạy lại script với URL đó để thay báo cáo.
 
+### Bằng chứng với một KB bên ngoài thật: Zendesk Help Center
+
+[docs/integration-evidence-zendesk.md](docs/integration-evidence-zendesk.md) ghi lại các lệnh `kb` chạy thật với `https://support.zendesk.com` (`KB_CLIENT=zendesk`), kèm ảnh chụp. Đây là KB bên ngoài, đang chạy production, do một bên thứ ba vận hành. Các yêu cầu đi qua Internet tới server của Zendesk, không qua code nào của project ở phía server.
+
 ## Cấu trúc dự án
 
 ```
@@ -467,10 +535,15 @@ Báo cáo ghi thời điểm, URL, commit mã nguồn, kết quả từng bướ
 │   ├── Clients/
 │   │   ├── IKbClient.cs                  Interface 4 thao tác: search, list, retrieve, add
 │   │   ├── MockKbClient.cs               Client dữ liệu trong bộ nhớ
-│   │   ├── HttpKbClient.cs               Client gọi KB API qua HTTP
+│   │   ├── HttpKbClient.cs               Client gọi KB API theo contract của đề (POST JSON)
+│   │   ├── ZendeskKbClient.cs            Client đọc Zendesk Help Center (GET, chỉ đọc)
+│   │   ├── KbHttpSender.cs               Gửi request, log, timeout, đổi lỗi: dùng chung cho 2 client HTTP
+│   │   ├── KbMatcher.cs                  Quy tắc cột MATCH: dùng chung cho mock và Zendesk
+│   │   ├── HtmlText.cs                   Đổi HTML của bài viết Zendesk sang chữ
 │   │   ├── KbClientFactory.cs            Chọn client theo KB_CLIENT
 │   │   ├── KbApiContract.cs              Định dạng JSON của API, dùng chung với KB API
-│   │   └── KbExceptions.cs               Lỗi không tìm thấy, lỗi API, lỗi cấu hình
+│   │   ├── ZendeskContract.cs            Định dạng JSON của Zendesk
+│   │   └── KbExceptions.cs               Lỗi không tìm thấy, lỗi API, lỗi cấu hình, thao tác không hỗ trợ
 │   └── Models/                           KbDocument, SearchResult, KbQuery
 ├── tools/KnowledgeBase.Api/              KB API tự dựng (ASP.NET Core Minimal API)
 │   ├── KbApiServer.cs                    Endpoint, token, trả lỗi dạng {"error": ...}
@@ -480,11 +553,15 @@ Báo cáo ghi thời điểm, URL, commit mã nguồn, kết quả từng bướ
 │   └── kb-api.http                       Request mẫu để thử API trong Visual Studio / VS Code
 ├── tests/
 │   ├── KnowledgeBase.UnitTests/
-│   └── KnowledgeBase.IntegrationTests/
+│   ├── KnowledgeBase.IntegrationTests/
+│   └── Fixtures/zendesk/                 Response thật của Zendesk (rút gọn), dùng chung cho 2 project test
 ├── scripts/verify-kb-api.sh              Kiểm thử CLI với một KB API bất kỳ, ghi báo cáo
 ├── docs/
 │   ├── kb-architecture.md                Kiến trúc và API contract
-│   └── integration-evidence.md           Báo cáo do scripts/verify-kb-api.sh sinh ra
+│   ├── integration-evidence.md           Báo cáo do scripts/verify-kb-api.sh sinh ra
+│   ├── integration-evidence-zendesk.md   Bằng chứng chạy thật với Zendesk Help Center
+│   ├── research-knowledge-base.md        Ghi chú tìm hiểu về Knowledge Base
+│   └── images/                           Ảnh của các tài liệu trên
 ├── coverlet.runsettings                  Cấu hình đo coverage
 └── global.json                           Cố định phiên bản .NET SDK
 ```
@@ -493,3 +570,5 @@ Báo cáo ghi thời điểm, URL, commit mã nguồn, kết quả từng bướ
 
 - [docs/kb-architecture.md](docs/kb-architecture.md): kiến trúc, luồng dữ liệu, API contract, các quyết định thiết kế.
 - [docs/integration-evidence.md](docs/integration-evidence.md): bằng chứng kiểm thử tích hợp với KB API.
+- [docs/integration-evidence-zendesk.md](docs/integration-evidence-zendesk.md): bằng chứng chạy thật với Zendesk Help Center.
+- [docs/research-knowledge-base.md](docs/research-knowledge-base.md): ghi chú tìm hiểu về Knowledge Base.
