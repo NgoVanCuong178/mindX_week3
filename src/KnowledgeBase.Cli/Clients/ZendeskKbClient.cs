@@ -32,19 +32,23 @@ public partial class ZendeskKbClient : IKbClient
 
     public string Locale { get; }
 
+    // Locale đã mã hoá để đặt vào URL; phần đầu đường dẫn của các endpoint theo ngôn ngữ (list, retrieve).
+    private string EscapedLocale => Uri.EscapeDataString(Locale);
+    private string LocalizedRoot => $"{ApiRoot}/{EscapedLocale}";
+
     // GET api/v2/help_center/articles/search.json?query=..&per_page=topK&locale=..
     // Giữ thứ tự xếp hạng của Zendesk; MATCH tự tính bằng KbMatcher (Zendesk không trả field này).
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(KbQuery query)
     {
         var path = $"{ApiRoot}/articles/search.json?query={Uri.EscapeDataString(query.Query)}" +
-                   $"&per_page={query.TopK}&locale={Uri.EscapeDataString(Locale)}";
+                   $"&per_page={query.TopK}&locale={EscapedLocale}";
         var response = await _sender.SendAsync<ZendeskSearchResponse>(
             HttpMethod.Get, path, body: null, r => MissingField(r.Results, "results"));
 
         return response.Results!
             .Take(query.TopK) // phòng khi server trả nhiều hơn per_page
             .Select(article => ToDocument(article!))
-            .Select(document => new SearchResult(Summarize(document),
+            .Select(document => new SearchResult(document.ToSummary(),
                                                  // Zendesk tìm cả biến thể của từ ("resetting"), nên có bài
                                                  // không chứa nguyên từ khoá: tính là khớp ở content.
                                                  KbMatcher.FindMatch(document, query.Query) ?? MatchKind.Content))
@@ -61,8 +65,7 @@ public partial class ZendeskKbClient : IKbClient
             return [];
         }
 
-        var path = $"{ApiRoot}/{Uri.EscapeDataString(Locale)}/sections/{match.Groups[1].Value}/articles.json" +
-                   $"?per_page={limit}";
+        var path = $"{LocalizedRoot}/sections/{match.Groups[1].Value}/articles.json?per_page={limit}";
         ZendeskArticlesResponse response;
         try
         {
@@ -74,7 +77,7 @@ public partial class ZendeskKbClient : IKbClient
             return [];
         }
 
-        return response.Articles!.Take(limit).Select(article => Summarize(ToDocument(article!))).ToList();
+        return response.Articles!.Take(limit).Select(article => ToDocument(article!).ToSummary()).ToList();
     }
 
     // GET api/v2/help_center/{locale}/articles/{id}.json
@@ -86,7 +89,7 @@ public partial class ZendeskKbClient : IKbClient
             throw new KbDocumentNotFoundException(docId);
         }
 
-        var path = $"{ApiRoot}/{Uri.EscapeDataString(Locale)}/articles/{docId}.json";
+        var path = $"{LocalizedRoot}/articles/{docId}.json";
         var response = await _sender.SendAsync<ZendeskArticleResponse>(
             HttpMethod.Get, path, body: null,
             r => r.Article is null ? "article" : MissingField(r.Article, requireBody: true),
@@ -107,9 +110,6 @@ public partial class ZendeskKbClient : IKbClient
                HtmlText.ToPlainText(article.Body ?? ""),
                $"/sections/{article.SectionId!.Value.ToString(CultureInfo.InvariantCulture)}",
                article.LabelNames?.Where(label => label is not null).ToList() ?? []); // thiếu label_names → không có tag
-
-    private static KbDocumentSummary Summarize(KbDocument document)
-        => new(document.Id, document.Title, document.NodePath);
 
     // Tên field bắt buộc đầu tiên bị thiếu trong danh sách bài viết, hoặc null nếu đủ.
     private static string? MissingField(IReadOnlyList<ZendeskArticle?>? articles, string listName)

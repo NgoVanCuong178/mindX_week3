@@ -43,7 +43,7 @@ public class MockKbClient : IKbClient
             .OrderBy(candidate => candidate.Match) // Title (0) --> Tag(1) --> Content(2)
             .ThenBy(candidate => candidate.Document.Id, StringComparer.Ordinal) // cùng loại khớp thì theo id
             .Take(query.TopK) // lấy tối đa topK
-            .Select(candidate => new SearchResult(Summarize(candidate.Document), candidate.Match!.Value))
+            .Select(candidate => new SearchResult(candidate.Document.ToSummary(), candidate.Match!.Value))
             .ToList();
         return Task.FromResult(results);
     }
@@ -55,7 +55,7 @@ public class MockKbClient : IKbClient
             .Where(document => document.NodePath == nodePath)
             .OrderBy(document => document.Id, StringComparer.Ordinal)
             .Take(limit)
-            .Select(Summarize)
+            .Select(document => document.ToSummary())
             .ToList();
         return Task.FromResult(documents);
     }
@@ -78,7 +78,4 @@ public class MockKbClient : IKbClient
         _documents.Add(added);
         return Task.FromResult(added);
     }
-
-    private static KbDocumentSummary Summarize(KbDocument document)
-        => new(document.Id, document.Title, document.NodePath);
 }
