@@ -206,6 +206,22 @@ public sealed class KbCommandTests : IDisposable
         Assert.Contains("doc-001", result.Output);
     }
 
+    // C13 — File có tồn tại nhưng không đọc được (đang bị chương trình khác khoá) → exit 1,
+    // "Cannot read file", không để exception lọt ra ngoài.
+    // Loại: Abnormal. [EG] file đang mở trong editor khác / không có quyền đọc.
+    [Fact]
+    public async Task C13_Add_UnreadableFile_ReportsReadError()
+    {
+        using var locked = new FileStream(_templateFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var result = await RunAsync(MockEnvironment, "add", "--file", _templateFile, "--path", "/templates/sms");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Contains("Cannot read file", result.Error);
+        AssertNoTechnicalDetails(result.Error);
+        Assert.Equal("", result.Output);
+    }
+
     private static Dictionary<string, string?> HttpEnvironment(string url) => new()
     {
         [KbClientFactory.ClientVariable] = "http",

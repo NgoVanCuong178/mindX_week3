@@ -30,8 +30,20 @@ internal static class AddCommand
                 throw new ValidationException($"File '{filePath}' not found.");
             }
 
+            string content;
+            try
+            {
+                content = await File.ReadAllTextAsync(filePath);
+            }
+            // File có nhưng không đọc được: đang bị chương trình khác khoá, không có quyền đọc,
+            // hoặc bị xoá ngay sau bước kiểm tra ở trên.
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new ValidationException($"Cannot read file '{filePath}': {ex.Message}");
+            }
+
             var document = await context.CreateService(result).AddAsync(
-                await File.ReadAllTextAsync(filePath), Path.GetFileName(filePath),
+                content, Path.GetFileName(filePath),
                 result.GetValue(path), result.GetValue(tags), result.GetValue(title));
             context.Output.WriteLine($"Added document {document.Id}");
             return 0;

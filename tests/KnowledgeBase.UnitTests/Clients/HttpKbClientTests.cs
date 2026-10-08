@@ -144,4 +144,75 @@ public class HttpKbClientTests
         Assert.Contains("200", line);
         Assert.DoesNotContain("secret-token", line);
     }
+
+    // Dữ liệu cho U15: mỗi thao tác một lần.
+    public static TheoryData<Func<HttpKbClient, Task>> AllOperations => new()
+    {
+        c => c.SearchAsync(new KbQuery("response", 5)),
+        c => c.ListAsync("/templates/email", 10),
+        c => c.RetrieveAsync("doc-001"),
+        c => c.AddAsync(new NewKbDocument("x", "y", "/z", [])),
+    };
+
+    // U15 — Server trả HTTP 200 với body là JSON `null` → KbApiException "invalid response",
+    // không được trả null cho lệnh phía trên (sẽ thành NullReferenceException khó hiểu).
+    // Loại: Abnormal. [EG] KB API lỗi trả về null thay vì đối tượng.
+    [Theory]
+    [MemberData(nameof(AllOperations))]
+    public async Task U15_NullResponse_ThrowsInvalidResponse(Func<HttpKbClient, Task> call)
+    {
+        var exception = await Assert.ThrowsAsync<KbApiException>(
+            () => call(CreateClient(FakeHttpMessageHandler.Json("null"))));
+
+        Assert.Contains("invalid response", exception.Message);
+    }
+
+    // Dữ liệu cho U16: (thao tác, response thiếu field, tên field phải có trong thông báo lỗi).
+    public static TheoryData<Func<HttpKbClient, Task>, string, string> MissingFields => new()
+    {
+        { c => c.SearchAsync(new KbQuery("response", 5)), """{}""", "results" },
+        { c => c.SearchAsync(new KbQuery("response", 5)),
+          """{"results":[{"id":"doc-001","nodePath":"/templates/email","matchType":"title"}]}""", "title" },
+        { c => c.SearchAsync(new KbQuery("response", 5)), """{"results":[null]}""", "id" },
+        { c => c.ListAsync("/templates/email", 10), """{"documents":null}""", "documents" },
+        { c => c.ListAsync("/templates/email", 10),
+          """{"documents":[{"title":"Customer Response Template","nodePath":"/templates/email"}]}""", "id" },
+        { c => c.RetrieveAsync("doc-001"),
+          """{"id":"doc-001","title":"Customer Response Template","nodePath":"/templates/email","tags":[]}""", "content" },
+        { c => c.RetrieveAsync("doc-001"),
+          """{"id":"doc-001","title":"T","content":"C","nodePath":"/templates/email","tags":["email",null]}""", "tags" },
+        { c => c.AddAsync(new NewKbDocument("x", "y", "/z", [])),
+          """{"id":"doc-004","title":"x","content":"y","tags":[]}""", "nodePath" },
+        { c => c.AddAsync(new NewKbDocument("x", "y", "/z", [])),
+          """{"id":"doc-004","title":"x","content":"y","nodePath":"/z"}""", "tags" },
+    };
+
+    // U16 — Response thiếu field bắt buộc (hoặc field là null) → KbApiException nói rõ field nào thiếu.
+    // Loại: Abnormal. [EP] mỗi loại response là một miền. [EG] KB API khác phiên bản / đổi tên field.
+    // matchType KHÔNG bắt buộc: architecture.md không có field này trong ví dụ /search.
+    [Theory]
+    [MemberData(nameof(MissingFields))]
+    public async Task U16_MissingField_ThrowsInvalidResponseNamingTheField(Func<HttpKbClient, Task> call,
+                                                                           string response, string field)
+    {
+        var exception = await Assert.ThrowsAsync<KbApiException>(
+            () => call(CreateClient(FakeHttpMessageHandler.Json(response))));
+
+        Assert.Contains("invalid response", exception.Message);
+        Assert.Contains($"'{field}'", exception.Message);
+    }
+
+    // U17 — Server báo lỗi kèm body {"error": "..."} → thông báo của CLI có cả mã HTTP lẫn lý do server đưa ra.
+    // Loại: Abnormal. [EG] HTTP 400 mà không nói sai ở đâu thì người dùng không tự sửa được.
+    [Fact]
+    public async Task U17_ErrorResponse_IncludesServerErrorMessage()
+    {
+        var handler = FakeHttpMessageHandler.Json("""{"error":"title is required."}""", HttpStatusCode.BadRequest);
+
+        var exception = await Assert.ThrowsAsync<KbApiException>(
+            () => CreateClient(handler).AddAsync(new NewKbDocument("x", "y", "/z", [])));
+
+        Assert.Contains("400", exception.Message);
+        Assert.Contains("title is required.", exception.Message);
+    }
 }

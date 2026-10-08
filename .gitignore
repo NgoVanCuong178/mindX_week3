@@ -485,4 +485,5 @@ $RECYCLE.BIN/
 
 # Local files created while trying the CLI by hand
 demo*.json
+kb-data*.json
 **/Properties/launchSettings.json
