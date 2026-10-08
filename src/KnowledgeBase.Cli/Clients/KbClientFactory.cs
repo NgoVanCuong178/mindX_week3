@@ -1,9 +1,10 @@
 namespace KnowledgeBase.Cli.Clients;
 
 // Chọn client theo biến môi trường:
-//   KB_CLIENT     mock (mặc định) | http
-//   KB_API_URL    bắt buộc khi KB_CLIENT=http
-//   KB_API_TOKEN  không bắt buộc, gửi kèm header "Authorization: Bearer <token>"
+//   KB_CLIENT          mock (mặc định) | http | zendesk
+//   KB_API_URL         bắt buộc khi KB_CLIENT=http hoặc zendesk
+//   KB_API_TOKEN       không bắt buộc, gửi kèm header "Authorization: Bearer <token>"
+//   KB_ZENDESK_LOCALE  không bắt buộc, mặc định "en-us" (chỉ dùng với zendesk)
 public static class KbClientFactory
 {
     // tên biến môi trường
@@ -24,14 +25,16 @@ public static class KbClientFactory
         {
             return new MockKbClient();
         }
+        var isZendesk = kind.Equals("zendesk", StringComparison.OrdinalIgnoreCase);
         // "ftp" và các giá trị lạ
-        if (!kind.Equals("http", StringComparison.OrdinalIgnoreCase))
+        if (!isZendesk && !kind.Equals("http", StringComparison.OrdinalIgnoreCase))
         {
-            throw new KbConfigurationException($"{ClientVariable} must be 'mock' or 'http', not '{kind}'.");
+            throw new KbConfigurationException($"{ClientVariable} must be 'mock', 'http' or 'zendesk', not '{kind}'.");
         }
-        // Http mà thiếu url
+        // http / zendesk mà thiếu url
         var url = Read(environment, ApiUrlVariable)
-                  ?? throw new KbConfigurationException($"{ApiUrlVariable} is required when {ClientVariable}=http.");
+                  ?? throw new KbConfigurationException(
+                      $"{ApiUrlVariable} is required when {ClientVariable}={kind.ToLowerInvariant()}.");
 
         // Thêm "/" cuối nếu thiếu: không có nó, HttpClient ghép "https://kb.example.test" + "search"
         // thành "https://kb.example.testsearch".
@@ -42,7 +45,11 @@ public static class KbClientFactory
         }
 
         var httpClient = new HttpClient { BaseAddress = baseAddress, Timeout = RequestTimeout };
-        return new HttpKbClient(httpClient, Read(environment, ApiTokenVariable), log);
+        var token = Read(environment, ApiTokenVariable);
+        return isZendesk
+            ? new ZendeskKbClient(httpClient, Read(environment, ZendeskLocaleVariable) ?? ZendeskKbClient.DefaultLocale,
+                                  token, log)
+            : new HttpKbClient(httpClient, token, log);
     }
 
     // Biến không có, hoặc có nhưng rỗng / chỉ khoảng trắng → coi như không đặt.

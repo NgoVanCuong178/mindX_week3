@@ -53,7 +53,8 @@ public static class CliApp
                 EnableDefaultExceptionHandler = false,
             });
         }
-        catch (Exception ex) when (ex is ValidationException or KbDocumentNotFoundException or KbConfigurationException)
+        catch (Exception ex) when (ex is ValidationException or KbDocumentNotFoundException or KbConfigurationException
+                                      or KbOperationNotSupportedException)
         {
             error.WriteLine(ex.Message);
             return 1;
