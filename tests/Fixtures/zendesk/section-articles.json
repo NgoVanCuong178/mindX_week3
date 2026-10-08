@@ -1,0 +1,43 @@
+{
+  "count": 31,
+  "page": 1,
+  "per_page": 2,
+  "articles": [
+    {
+      "id": 11302967356058,
+      "url": "https://support.zendesk.com/api/v2/help_center/en-us/articles/11302967356058.json",
+      "html_url": "https://support.zendesk.com/hc/en-us/articles/11302967356058-Error-Zendesk-Support-could-not-be-loaded-due-to-an-error",
+      "author_id": 1900815493244,
+      "section_id": 4405298881946,
+      "created_at": "2026-09-29T14:22:04Z",
+      "updated_at": "2026-10-06T15:07:28Z",
+      "title": "Error: Zendesk Support could not be loaded due to an error",
+      "locale": "en-us",
+      "label_names": [
+        "do_not_archive",
+        "ks",
+        "ab0",
+        "role_agent"
+      ],
+      "body": "<h2 id=\"h_01HYBAYR3VJ6P4FCNVT2JZ5YYZ\">Issue symptoms</h2><p>When I try to sign in to Zendesk, I see the error: <strong>Zendesk Support could not be loaded due to an error</strong>.</p><figure><p><img src=\"https://support.zendesk.com/hc/article_attachments/11302967355034\" width=\"480\" height=\"297\"></p></figure><p>In the browser console and network logs, I may see 5xx errors.</p>"
+    },
+    {
+      "id": 11270498158490,
+      "url": "https://support.zendesk.com/api/v2/help_center/en-us/articles/11270498158490.json",
+      "html_url": "https://support.zendesk.com/hc/en-us/articles/11270498158490-Error-AADSTS90015-Requested-Query-string-is-too-long",
+      "author_id": 1266644443030,
+      "section_id": 4405298881946,
+      "created_at": "2026-09-21T11:36:20Z",
+      "updated_at": "2026-09-22T15:02:52Z",
+      "title": "Error: AADSTS90015: Requested Query string is too long",
+      "locale": "en-us",
+      "label_names": [
+        "do_not_archive",
+        "ks",
+        "ab0",
+        "ab0_support"
+      ],
+      "body": "<h2 id=\"h_01HYBAYR3VJ6P4FCNVT2JZ5YYZ\">Issue symptoms</h2><p>Using SSO (Single Sign-On) and Microsoft, I see this error: <strong>AADSTS90015: Requested Query string is too long</strong>. How can I solve this?</p>"
+    }
+  ]
+}

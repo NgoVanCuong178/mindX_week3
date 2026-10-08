@@ -12,3 +12,6 @@ public class KbApiException(string message, Exception? innerException = null)
 
 // Cấu hình KB_CLIENT / KB_API_URL bị thiếu hoặc sai. Exit code 1.
 public class KbConfigurationException(string message) : Exception(message);
+
+// Client đang dùng không hỗ trợ thao tác này (ví dụ kb add với Zendesk Help Center chỉ đọc). Exit code 1.
+public class KbOperationNotSupportedException(string message) : Exception(message);

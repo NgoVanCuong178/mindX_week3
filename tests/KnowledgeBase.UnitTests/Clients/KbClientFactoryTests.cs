@@ -46,4 +46,36 @@ public class KbClientFactoryTests
     {
         Assert.Throws<KbConfigurationException>(() => KbClientFactory.Create(environment));
     }
+
+    // U18 — KB_CLIENT=zendesk → ZendeskKbClient, dùng chung cách đọc KB_API_URL với http (tự thêm "/" cuối);
+    // KB_ZENDESK_LOCALE không đặt / rỗng → "en-us". Không phân biệt hoa thường.
+    // Loại: Normal, Boundary (locale rỗng). [DT] thêm luật "zendesk" vào bảng chọn client.
+    [Theory]
+    [InlineData("zendesk", null, "en-us")]
+    [InlineData("ZENDESK", "", "en-us")]
+    [InlineData("zendesk", "vi", "vi")]
+    public void U18_Create_Zendesk_PicksZendeskClient(string kind, string? locale, string expectedLocale)
+    {
+        var client = KbClientFactory.Create(new Dictionary<string, string?>
+        {
+            ["KB_CLIENT"] = kind,
+            ["KB_API_URL"] = "https://support.zendesk.com",
+            ["KB_ZENDESK_LOCALE"] = locale,
+        });
+
+        var zendesk = Assert.IsType<ZendeskKbClient>(client);
+        Assert.Equal("https://support.zendesk.com/", zendesk.BaseAddress?.ToString());
+        Assert.Equal(expectedLocale, zendesk.Locale);
+    }
+
+    // U18 — KB_CLIENT=zendesk mà thiếu KB_API_URL → lỗi cấu hình nói rõ biến nào thiếu.
+    // Loại: Abnormal. [DT]
+    [Fact]
+    public void U18_Create_ZendeskWithoutUrl_ReportsMissingUrl()
+    {
+        var exception = Assert.Throws<KbConfigurationException>(
+            () => KbClientFactory.Create(new Dictionary<string, string?> { ["KB_CLIENT"] = "zendesk" }));
+
+        Assert.Contains("KB_API_URL", exception.Message);
+    }
 }

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -20,6 +20,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\KnowledgeBase.Cli\KnowledgeBase.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Response thật của Zendesk Help Center (rút gọn), dùng chung cho cả hai project test. -->
+    <None Include="..\Fixtures\zendesk\*.json" Link="Fixtures\zendesk\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

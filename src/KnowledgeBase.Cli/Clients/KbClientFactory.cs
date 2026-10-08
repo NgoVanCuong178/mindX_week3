@@ -10,6 +10,7 @@ public static class KbClientFactory
     public const string ClientVariable = "KB_CLIENT";
     public const string ApiUrlVariable = "KB_API_URL";
     public const string ApiTokenVariable = "KB_API_TOKEN";
+    public const string ZendeskLocaleVariable = "KB_ZENDESK_LOCALE"; // ngôn ngữ bài viết khi KB_CLIENT=zendesk
     // thời gian tối đa mỗi request là 10 giây
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
 

@@ -1,9 +1,6 @@
 using KnowledgeBase.Api;
 using KnowledgeBase.Cli.Clients;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace KnowledgeBase.IntegrationTests.Support;
 
@@ -40,13 +37,7 @@ public sealed class RunningKbApi : IAsyncDisposable
     private static async Task<RunningKbApi> StartAsync(IEnumerable<string> args, IKbClient? store)
     {
         var app = KbApiServer.Build([.. args, "--Logging:LogLevel:Default=Warning"], store);
-        app.Urls.Add("http://127.0.0.1:0");      // cổng 0 = để hệ điều hành chọn cổng trống
-        await app.StartAsync();
-
-        var address = app.Services.GetRequiredService<IServer>()
-                         .Features.Get<IServerAddressesFeature>()!
-                         .Addresses.First();
-        return new RunningKbApi(app, address.TrimEnd('/') + "/");
+        return new RunningKbApi(app, await LocalServer.StartOnFreePortAsync(app));
     }
 
     public async ValueTask DisposeAsync()

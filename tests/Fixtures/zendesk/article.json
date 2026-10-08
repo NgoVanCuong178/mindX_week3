@@ -1,0 +1,20 @@
+{
+  "article": {
+    "id": 4408894162714,
+    "url": "https://support.zendesk.com/api/v2/help_center/en-us/articles/4408894162714.json",
+    "html_url": "https://support.zendesk.com/hc/en-us/articles/4408894162714-How-long-are-account-verification-emails-and-password-reset-emails-valid",
+    "author_id": 1262675270510,
+    "section_id": 4405298881946,
+    "created_at": "2021-10-16T17:46:05Z",
+    "updated_at": "2026-01-28T13:57:48Z",
+    "title": "How long are account verification emails and password reset emails valid?",
+    "locale": "en-us",
+    "label_names": [
+      "mtpe",
+      "ks",
+      "ab0",
+      "Support"
+    ],
+    "body": "<h2>Question</h2>\n<p>How long are account verification emails and password reset emails valid?</p>\n<h2>Answer </h2>\n<p>Both account verification emails and password reset emails expire after 24 hours. The <a href=\"https://support.zendesk.com/hc/en-us/articles/4408832398618\" target=\"_blank\" rel=\"noopener\">verification email can be resent</a> to the user, and the user can also <a href=\"https://support.zendesk.com/hc/en-us/articles/4408843565722\" target=\"_blank\" rel=\"noopener\">request a new password reset email</a> after it expires.</p>\n<p>When the account verification email expires, the user receives an error such as \"No user found (invalid activation link)\" as shown here:</p>\n<p><img src=\"https://support.zendesk.com/hc/article_attachments/4408894685082/mceclip0.png\" alt=\"\" width=\"739\" height=\"96\"></p>\n<p> </p>\n<p>When the password reset email expires, the user receives an error such as \"You can generate a new reset link from the sign-in page\" as shown here:</p>\n<p><img src=\"https://support.zendesk.com/hc/article_attachments/4408894684698/mceclip1.png\" alt=\"\" width=\"477\" height=\"58\"></p>"
+  }
+}

@@ -27,4 +27,9 @@
     <ProjectReference Include="..\..\tools\KnowledgeBase.Api\KnowledgeBase.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Response thật của Zendesk Help Center (rút gọn), dùng chung cho cả hai project test. -->
+    <None Include="..\Fixtures\zendesk\*.json" Link="Fixtures\zendesk\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

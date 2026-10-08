@@ -38,7 +38,7 @@ public class MockKbClient : IKbClient
     public Task<IReadOnlyList<SearchResult>> SearchAsync(KbQuery query)
     {
         IReadOnlyList<SearchResult> results = _documents
-            .Select(document => (Document: document, Match: FindMatch(document, query.Query))) // tính "khớp ở đâu"
+            .Select(document => (Document: document, Match: KbMatcher.FindMatch(document, query.Query))) // tính "khớp ở đâu"
             .Where(candidate => candidate.Match is not null) // bỏ tài liệu không khớp
             .OrderBy(candidate => candidate.Match) // Title (0) --> Tag(1) --> Content(2)
             .ThenBy(candidate => candidate.Document.Id, StringComparer.Ordinal) // cùng loại khớp thì theo id
@@ -77,21 +77,6 @@ public class MockKbClient : IKbClient
                                    document.NodePath, document.Tags.ToList()); // D3 : đủ 3 chữ số --> "doc-006"
         _documents.Add(added);
         return Task.FromResult(added);
-    }
-
-    private static MatchKind? FindMatch(KbDocument document, string query)
-    {
-        if (document.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
-        {
-            return MatchKind.Title;
-        }
-
-        if (document.Tags.Any(tag => tag.Contains(query, StringComparison.OrdinalIgnoreCase)))
-        {
-            return MatchKind.Tag;
-        }
-
-        return document.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ? MatchKind.Content : null;
     }
 
     private static KbDocumentSummary Summarize(KbDocument document)
