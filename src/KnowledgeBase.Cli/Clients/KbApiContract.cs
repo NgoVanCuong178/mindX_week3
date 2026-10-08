@@ -26,8 +26,13 @@ public static class KbApiJson
 {
     // Tên field dạng camelCase ("nodePath", "topK"), đọc không phân biệt hoa thường,
     // enum ghi thành chữ ("title", "tag", "content") thay vì số.
-    public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
+    public static JsonSerializerOptions Options { get; } = Configure(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+    // Áp dụng quy ước JSON của KB API lên một JsonSerializerOptions có sẵn. HttpKbClient (qua Options)
+    // và KnowledgeBase.Api (qua ConfigureHttpJsonOptions) cùng gọi hàm này, nên chỉ có MỘT chỗ định nghĩa.
+    public static JsonSerializerOptions Configure(JsonSerializerOptions options)
     {
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-    };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
+    }
 }

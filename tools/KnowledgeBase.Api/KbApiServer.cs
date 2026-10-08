@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using KnowledgeBase.Cli.Clients;
 using KnowledgeBase.Cli.Models;
 
@@ -23,9 +21,8 @@ public static class KbApiServer
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // Ghi enum thành chữ ("title") thay vì số, đúng như HttpKbClient mong đợi (KbApiJson).
-        builder.Services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+        // Dùng đúng quy ước JSON mà HttpKbClient dùng (enum thành chữ "title"...), định nghĩa ở KbApiJson.
+        builder.Services.ConfigureHttpJsonOptions(options => KbApiJson.Configure(options.SerializerOptions));
 
         var app = builder.Build();
         // nếu store chưa có thì gán. Test truyền store vào trong bộ nhớ, chạy thật thì dùng file.
